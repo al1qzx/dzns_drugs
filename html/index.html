@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: transparent;
+    font-family: 'Segoe UI', sans-serif;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    height: 100vh;
+    padding-bottom: 80px;
+    pointer-events: none;
+  }
+
+  #qte-wrapper {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 420px;
+  }
+
+  #qte-wrapper.active {
+    display: flex;
+  }
+
+  #qte-label {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+    letter-spacing: 0.5px;
+  }
+
+  #qte-hint {
+    color: #aaa;
+    font-size: 12px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  }
+
+  /* Vonkajší track */
+  #qte-track {
+    position: relative;
+    width: 100%;
+    height: 22px;
+    background: rgba(0,0,0,0.55);
+    border-radius: 11px;
+    border: 1px solid rgba(255,255,255,0.12);
+    overflow: hidden;
+  }
+
+  /* Zelené okno */
+  #qte-window {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: rgba(72, 199, 90, 0.55);
+    border-left:  2px solid #48c75a;
+    border-right: 2px solid #48c75a;
+    border-radius: 4px;
+    transition: none;
+  }
+
+  /* Pohyblivá ihla */
+  #qte-needle {
+    position: absolute;
+    top: -3px;
+    width: 4px;
+    height: calc(100% + 6px);
+    background: #fff;
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(255,255,255,0.8);
+    transition: none;
+  }
+
+  /* Flash efekt pri výsledku */
+  #qte-track.success { border-color: #48c75a; box-shadow: 0 0 10px #48c75a88; }
+  #qte-track.fail    { border-color: #e05353; box-shadow: 0 0 10px #e0535388; }
+</style>
+</head>
+<body>
+
+<div id="qte-wrapper">
+  <div id="qte-label">Akcia...</div>
+  <div id="qte-track">
+    <div id="qte-window"></div>
+    <div id="qte-needle"></div>
+  </div>
+  <div id="qte-hint">Stlač <strong style="color:#fff">[E]</strong> keď ihla je v zelenom poli</div>
+</div>
+
+<script>
+  const wrapper = document.getElementById('qte-wrapper');
+  const label   = document.getElementById('qte-label');
+  const track   = document.getElementById('qte-track');
+  const win     = document.getElementById('qte-window');
+  const needle  = document.getElementById('qte-needle');
+
+  let animFrame = null;
+  let startTime = null;
+  let duration  = 5000;
+
+  function stopAnim() {
+    if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+  }
+
+  function animate(ts) {
+    if (!startTime) startTime = ts;
+    const elapsed  = ts - startTime;
+    const progress = Math.min(elapsed / duration, 1.0);
+
+    // Ihla ide zľava doprava
+    const trackW = track.offsetWidth;
+    needle.style.left = (progress * trackW - 2) + 'px';
+
+    if (progress < 1.0) {
+      animFrame = requestAnimationFrame(animate);
+    }
+  }
+
+  window.addEventListener('message', function(event) {
+    const data = event.data;
+
+    if (data.type === 'qte_start') {
+      // Reset
+      stopAnim();
+      startTime = null;
+      duration  = data.duration || 5000;
+      track.className = '';
+
+      // Nastav zelené okno
+      const pct   = track.offsetWidth || 420;
+      win.style.left  = (data.windowStart * 100) + '%';
+      win.style.width = (data.windowSize  * 100) + '%';
+
+      label.textContent = data.label || 'Stlač [E]...';
+
+      // Ihla na štart
+      needle.style.left = '-2px';
+
+      wrapper.classList.add('active');
+      animFrame = requestAnimationFrame(animate);
+
+    } else if (data.type === 'qte_stop') {
+      stopAnim();
+      wrapper.classList.remove('active');
+      track.className = '';
+    }
+  });
+</script>
+</body>
+</html>
